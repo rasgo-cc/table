@@ -54,9 +54,9 @@ export function createColumn<TData extends RowData, TValue>(
         for (const key of accessorKey.split('.')) {
           result = result?.[key]
           if (process.env.NODE_ENV !== 'production' && result === undefined) {
-            console.warn(
-              `"${key}" in deeply nested key "${accessorKey}" returned undefined.`
-            )
+            // console.warn(
+            //   `"${key}" in deeply nested key "${accessorKey}" returned undefined.`
+            // )
           }
         }
 
