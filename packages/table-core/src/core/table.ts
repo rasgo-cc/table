@@ -1,20 +1,20 @@
 import { functionalUpdate, getMemoOptions, memo, RequiredKeys } from '../utils'
 
 import {
-  Updater,
-  TableOptionsResolved,
-  TableState,
-  Table,
-  InitialTableState,
-  Row,
   Column,
-  RowModel,
   ColumnDef,
-  TableOptions,
-  RowData,
-  TableMeta,
   ColumnDefResolved,
   GroupColumnDef,
+  InitialTableState,
+  Row,
+  RowData,
+  RowModel,
+  Table,
+  TableMeta,
+  TableOptions,
+  TableOptionsResolved,
+  TableState,
+  Updater,
 } from '../types'
 
 //
@@ -29,8 +29,8 @@ import { Grouping } from '../features/Grouping'
 import { Ordering } from '../features/Ordering'
 import { Pagination } from '../features/Pagination'
 import { Pinning } from '../features/Pinning'
-import { RowSelection } from '../features/RowSelection'
 import { RowPicking } from '../features/RowPicking'
+import { RowSelection } from '../features/RowSelection'
 import { Sorting } from '../features/Sorting'
 import { Visibility } from '../features/Visibility'
 

@@ -1,6 +1,6 @@
 import { TableFeature } from '../core/table'
-import { OnChangeFn, Table, Row, RowModel, Updater, RowData } from '../types'
-import { makeStateUpdater, memo } from '../utils'
+import { OnChangeFn, Row, RowData, RowModel, Table, Updater } from '../types'
+import { getMemoOptions, makeStateUpdater, memo } from '../utils'
 
 export type RowPickingState = Record<string, boolean>
 
@@ -67,282 +67,265 @@ export const RowPicking: TableFeature = {
     }
   },
 
-  createTable: <TData extends RowData>(
-    table: Table<TData>
-  ): RowPickingInstance<TData> => {
-    return {
-      setRowPicking: updater => table.options.onRowPickingChange?.(updater),
-      resetRowPicking: defaultState =>
-        table.setRowPicking(
-          defaultState ? {} : table.initialState.rowPicking ?? {}
-        ),
-      toggleAllRowsPicked: value => {
-        table.setRowPicking(old => {
-          value =
-            typeof value !== 'undefined' ? value : !table.getIsAllRowsPicked()
+  createTable: <TData extends RowData>(table: Table<TData>): void => {
+    table.setRowPicking = updater => 
+      table.options.onRowPickingChange?.(updater)
+    table.resetRowPicking = defaultState =>
+      table.setRowPicking(
+        defaultState ? {} : table.initialState.rowPicking ?? {}
+      )
+    table.toggleAllRowsPicked = value => {
+      table.setRowPicking(old => {
+        value =
+          typeof value !== 'undefined' ? value : !table.getIsAllRowsPicked()
 
-          const rowPicking = { ...old }
+        const rowPicking = { ...old }
 
-          const preGroupedFlatRows = table.getPreGroupedRowModel().flatRows
+        const preGroupedFlatRows = table.getPreGroupedRowModel().flatRows
 
-          // We don't use `mutateRowIsPicked` here for performance reasons.
-          // All of the rows are flat already, so it wouldn't be worth it
-          if (value) {
-            preGroupedFlatRows.forEach(row => {
-              if (!row.getCanPick()) {
-                return
-              }
-              rowPicking[row.id] = true
-            })
-          } else {
-            preGroupedFlatRows.forEach(row => {
-              delete rowPicking[row.id]
-            })
-          }
-
-          return rowPicking
-        })
-      },
-      toggleAllPageRowsPicked: value =>
-        table.setRowPicking(old => {
-          const resolvedValue =
-            typeof value !== 'undefined'
-              ? value
-              : !table.getIsAllPageRowsPicked()
-
-          const rowPicking: RowPickingState = { ...old }
-
-          table.getRowModel().rows.forEach(row => {
-            mutateRowIsPicked(rowPicking, row.id, resolvedValue, table)
+        // We don't use `mutateRowIsPicked` here for performance reasons.
+        // All of the rows are flat already, so it wouldn't be worth it
+        if (value) {
+          preGroupedFlatRows.forEach(row => {
+            if (!row.getCanPick()) {
+              return
+            }
+            rowPicking[row.id] = true
           })
-
-          return rowPicking
-        }),
-
-      getPrePickedRowModel: () => table.getCoreRowModel(),
-      getPickedRowModel: memo(
-        () => [table.getState().rowPicking, table.getCoreRowModel()],
-        (rowPicking, rowModel) => {
-          if (!Object.keys(rowPicking).length) {
-            return {
-              rows: [],
-              flatRows: [],
-              rowsById: {},
-            }
-          }
-
-          return pickRowsFn(table, rowModel)
-        },
-        {
-          key: process.env.NODE_ENV === 'development' && 'getPickedRowModel',
-          debug: () => table.options.debugAll ?? table.options.debugTable,
+        } else {
+          preGroupedFlatRows.forEach(row => {
+            delete rowPicking[row.id]
+          })
         }
-      ),
 
-      getFilteredPickedRowModel: memo(
-        () => [table.getState().rowPicking, table.getFilteredRowModel()],
-        (rowPicking, rowModel) => {
-          if (!Object.keys(rowPicking).length) {
-            return {
-              rows: [],
-              flatRows: [],
-              rowsById: {},
-            }
-          }
+        return rowPicking
+      })
+    }
+    table.toggleAllPageRowsPicked = value =>
+      table.setRowPicking(old => {
+        const resolvedValue =
+          typeof value !== 'undefined'
+            ? value
+            : !table.getIsAllPageRowsPicked()
 
-          return pickRowsFn(table, rowModel)
-        },
-        {
-          key:
-            process.env.NODE_ENV === 'production' &&
-            'getFilteredPickedRowModel',
-          debug: () => table.options.debugAll ?? table.options.debugTable,
-        }
-      ),
+        const rowPicking: RowPickingState = { ...old }
 
-      getGroupedPickedRowModel: memo(
-        () => [table.getState().rowPicking, table.getSortedRowModel()],
-        (rowPicking, rowModel) => {
-          if (!Object.keys(rowPicking).length) {
-            return {
-              rows: [],
-              flatRows: [],
-              rowsById: {},
-            }
-          }
+        table.getRowModel().rows.forEach(row => {
+          mutateRowIsPicked(rowPicking, row.id, resolvedValue, table)
+        })
 
-          return pickRowsFn(table, rowModel)
-        },
-        {
-          key:
-            process.env.NODE_ENV === 'production' &&
-            'getGroupedPickedRowModel',
-          debug: () => table.options.debugAll ?? table.options.debugTable,
-        }
-      ),
+        return rowPicking
+      })
 
-      ///
-
-      // getGroupingRowCanSelect: rowId => {
-      //   const row = table.getRow(rowId)
-
-      //   if (!row) {
-      //     throw new Error()
-      //   }
-
-      //   if (typeof table.options.enableGroupingRowPicking === 'function') {
-      //     return table.options.enableGroupingRowPicking(row)
-      //   }
-
-      //   return table.options.enableGroupingRowPicking ?? false
-      // },
-
-      getIsAllRowsPicked: () => {
-        const preGroupedFlatRows = table.getFilteredRowModel().flatRows
-        const { rowPicking } = table.getState()
-
-        let isAllRowsPicked = Boolean(
-          preGroupedFlatRows.length && Object.keys(rowPicking).length
-        )
-
-        if (isAllRowsPicked) {
-          if (
-            preGroupedFlatRows.some(
-              row => row.getCanPick() && !rowPicking[row.id]
-            )
-          ) {
-            isAllRowsPicked = false
+    table.getPrePickedRowModel = () => table.getCoreRowModel()
+    table.getPickedRowModel = memo(
+      () => [table.getState().rowPicking, table.getCoreRowModel()],
+      (rowPicking, rowModel) => {
+        if (!Object.keys(rowPicking).length) {
+          return {
+            rows: [],
+            flatRows: [],
+            rowsById: {},
           }
         }
 
-        return isAllRowsPicked
+        return pickRowsFn(table, rowModel)
       },
+      getMemoOptions(table.options, "debugTable", "getPickedRowModel")
+    )
 
-      getIsAllPageRowsPicked: () => {
-        const paginationFlatRows = table
-          .getPaginationRowModel()
-          .flatRows.filter(row => row.getCanPick())
-        const { rowPicking } = table.getState()
+    table.getFilteredPickedRowModel = memo(
+      () => [table.getState().rowPicking, table.getFilteredRowModel()],
+      (rowPicking, rowModel) => {
+        if (!Object.keys(rowPicking).length) {
+          return {
+            rows: [],
+            flatRows: [],
+            rowsById: {},
+          }
+        }
 
-        let isAllPageRowsPicked = !!paginationFlatRows.length
+        return pickRowsFn(table, rowModel)
+      },
+      getMemoOptions(table.options, "debugTable", "getFilteredPickedRowModel")
+    )
 
+    table.getGroupedPickedRowModel = memo(
+      () => [table.getState().rowPicking, table.getSortedRowModel()],
+      (rowPicking, rowModel) => {
+        if (!Object.keys(rowPicking).length) {
+          return {
+            rows: [],
+            flatRows: [],
+            rowsById: {},
+          }
+        }
+
+        return pickRowsFn(table, rowModel)
+      },
+      getMemoOptions(table.options, "debugTable", "getGroupedPickedRowModel")
+    )
+
+    ///
+
+    // getGroupingRowCanSelect: rowId => {
+    //   const row = table.getRow(rowId)
+
+    //   if (!row) {
+    //     throw new Error()
+    //   }
+
+    //   if (typeof table.options.enableGroupingRowPicking === 'function') {
+    //     return table.options.enableGroupingRowPicking(row)
+    //   }
+
+    //   return table.options.enableGroupingRowPicking ?? false
+    // },
+
+    table.getIsAllRowsPicked = () => {
+      const preGroupedFlatRows = table.getFilteredRowModel().flatRows
+      const { rowPicking } = table.getState()
+
+      let isAllRowsPicked = Boolean(
+        preGroupedFlatRows.length && Object.keys(rowPicking).length
+      )
+
+      if (isAllRowsPicked) {
         if (
-          isAllPageRowsPicked &&
-          paginationFlatRows.some(row => !rowPicking[row.id])
+          preGroupedFlatRows.some(
+            row => row.getCanPick() && !rowPicking[row.id]
+          )
         ) {
-          isAllPageRowsPicked = false
+          isAllRowsPicked = false
         }
+      }
 
-        return isAllPageRowsPicked
-      },
+      return isAllRowsPicked
+    }
 
-      getIsSomeRowsPicked: () => {
-        const totalPicked = Object.keys(
-          table.getState().rowPicking ?? {}
-        ).length
-        return (
-          totalPicked > 0 &&
-          totalPicked < table.getFilteredRowModel().flatRows.length
+    table.getIsAllPageRowsPicked = () => {
+      const paginationFlatRows = table
+        .getPaginationRowModel()
+        .flatRows.filter(row => row.getCanPick())
+      const { rowPicking } = table.getState()
+
+      let isAllPageRowsPicked = !!paginationFlatRows.length
+
+      if (
+        isAllPageRowsPicked &&
+        paginationFlatRows.some(row => !rowPicking[row.id])
+      ) {
+        isAllPageRowsPicked = false
+      }
+
+      return isAllPageRowsPicked
+    }
+
+    table.getIsSomeRowsPicked = () => {
+      const totalPicked = Object.keys(
+        table.getState().rowPicking ?? {}
+      ).length
+      return (
+        totalPicked > 0 &&
+        totalPicked < table.getFilteredRowModel().flatRows.length
+      )
+    }
+
+    table.getIsSomePageRowsPicked = () => {
+      const paginationFlatRows = table.getPaginationRowModel().flatRows
+      return table.getIsAllPageRowsPicked()
+        ? false
+        : paginationFlatRows
+            .filter(row => row.getCanPick())
+            .some(d => d.getIsPicked() || d.getIsSomePicked())
+    }
+
+    table.getToggleAllRowsPickedHandler = () => {
+      return (e: unknown) => {
+        table.toggleAllRowsPicked(
+          ((e as MouseEvent).target as HTMLInputElement).checked
         )
-      },
+      }
+    }
 
-      getIsSomePageRowsPicked: () => {
-        const paginationFlatRows = table.getPaginationRowModel().flatRows
-        return table.getIsAllPageRowsPicked()
-          ? false
-          : paginationFlatRows
-              .filter(row => row.getCanPick())
-              .some(d => d.getIsPicked() || d.getIsSomePicked())
-      },
-
-      getToggleAllRowsPickedHandler: () => {
-        return (e: unknown) => {
-          table.toggleAllRowsPicked(
-            ((e as MouseEvent).target as HTMLInputElement).checked
-          )
-        }
-      },
-
-      getToggleAllPageRowsPickedHandler: () => {
-        return (e: unknown) => {
-          table.toggleAllPageRowsPicked(
-            ((e as MouseEvent).target as HTMLInputElement).checked
-          )
-        }
-      },
+    table.getToggleAllPageRowsPickedHandler = () => {
+      return (e: unknown) => {
+        table.toggleAllPageRowsPicked(
+          ((e as MouseEvent).target as HTMLInputElement).checked
+        )
+      }
     }
   },
 
   createRow: <TData extends RowData>(
     row: Row<TData>,
     table: Table<TData>
-  ): RowPickingRow => {
-    return {
-      togglePicked: value => {
-        const isPicked = row.getIsPicked()
+  ): void => {
 
-        table.setRowPicking(old => {
-          value = typeof value !== 'undefined' ? value : !isPicked
+    row.togglePicked = value => {
+      const isPicked = row.getIsPicked()
 
-          if (isPicked === value) {
-            return old
-          }
+      table.setRowPicking(old => {
+        value = typeof value !== 'undefined' ? value : !isPicked
 
-          const pickedRowIds = { ...old }
-
-          mutateRowIsPicked(pickedRowIds, row.id, value, table)
-
-          return pickedRowIds
-        })
-      },
-      getIsPicked: () => {
-        const { rowPicking } = table.getState()
-        return isRowPicked(row, rowPicking)
-      },
-
-      getIsSomePicked: () => {
-        const { rowPicking } = table.getState()
-        return isSubRowPicked(row, rowPicking, table) === 'some'
-      },
-
-      getIsAllSubRowsPicked: () => {
-        const { rowPicking } = table.getState()
-        return isSubRowPicked(row, rowPicking, table) === 'all'
-      },
-
-      getCanPick: () => {
-        if (typeof table.options.enableRowPicking === 'function') {
-          return table.options.enableRowPicking(row)
+        if (isPicked === value) {
+          return old
         }
 
-        return table.options.enableRowPicking ?? true
-      },
+        const pickedRowIds = { ...old }
 
-      getCanPickSubRows: () => {
-        if (typeof table.options.enableSubRowPicking === 'function') {
-          return table.options.enableSubRowPicking(row)
-        }
+        mutateRowIsPicked(pickedRowIds, row.id, value, table)
 
-        return table.options.enableSubRowPicking ?? true
-      },
+        return pickedRowIds
+      })
+    }
+    row.getIsPicked = () => {
+      const { rowPicking } = table.getState()
+      return isRowPicked(row, rowPicking)
+    }
 
-      getCanMultiSelect: () => {
-        if (typeof table.options.enableMultiRowPicking === 'function') {
-          return table.options.enableMultiRowPicking(row)
-        }
+    row.getIsSomePicked = () => {
+      const { rowPicking } = table.getState()
+      return isSubRowPicked(row, rowPicking, table) === 'some'
+    }
 
-        return table.options.enableMultiRowPicking ?? true
-      },
-      getTogglePickedHandler: () => {
-        const canPick = row.getCanPick()
+    row.getIsAllSubRowsPicked = () => {
+      const { rowPicking } = table.getState()
+      return isSubRowPicked(row, rowPicking, table) === 'all'
+    }
 
-        return (e: unknown) => {
-          if (!canPick) return
-          row.togglePicked(
-            ((e as MouseEvent).target as HTMLInputElement)?.checked
-          )
-        }
-      },
+    row.getCanPick = () => {
+      if (typeof table.options.enableRowPicking === 'function') {
+        return table.options.enableRowPicking(row)
+      }
+
+      return table.options.enableRowPicking ?? true
+    }
+
+    row.getCanPickSubRows = () => {
+      if (typeof table.options.enableSubRowPicking === 'function') {
+        return table.options.enableSubRowPicking(row)
+      }
+
+      return table.options.enableSubRowPicking ?? true
+    }
+
+    row.getCanMultiSelect = () => {
+      if (typeof table.options.enableMultiRowPicking === 'function') {
+        return table.options.enableMultiRowPicking(row)
+      }
+
+      return table.options.enableMultiRowPicking ?? true
+    }
+    row.getTogglePickedHandler = () => {
+      const canPick = row.getCanPick()
+
+      return (e: unknown) => {
+        if (!canPick) return
+        row.togglePicked(
+          ((e as MouseEvent).target as HTMLInputElement)?.checked
+        )
+      }
     }
   },
 }
