@@ -20,7 +20,7 @@ export type PersonApiResponse = {
 }
 
 const range = (len: number) => {
-  const arr = []
+  const arr: number[] = []
   for (let i = 0; i < len; i++) {
     arr.push(i)
   }
@@ -30,12 +30,12 @@ const range = (len: number) => {
 const newPerson = (index: number): Person => {
   return {
     id: index + 1,
-    firstName: faker.name.firstName(),
-    lastName: faker.name.lastName(),
-    age: faker.datatype.number(40),
-    visits: faker.datatype.number(1000),
-    progress: faker.datatype.number(100),
-    createdAt: faker.datatype.datetime({ max: new Date().getTime() }),
+    firstName: faker.person.firstName(),
+    lastName: faker.person.lastName(),
+    age: faker.number.int(40),
+    visits: faker.number.int(1000),
+    progress: faker.number.int(100),
+    createdAt: faker.date.anytime(),
     status: faker.helpers.shuffle<Person['status']>([
       'relationship',
       'complicated',
@@ -60,7 +60,7 @@ export function makeData(...lens: number[]) {
 const data = makeData(1000)
 
 //simulates a backend api
-export const fetchData = (
+export const fetchData = async (
   start: number,
   size: number,
   sorting: SortingState
@@ -76,6 +76,9 @@ export const fetchData = (
       return a[id] > b[id] ? 1 : -1
     })
   }
+
+  //simulate a backend api
+  await new Promise(resolve => setTimeout(resolve, 200))
 
   return {
     data: dbData.slice(start, start + size),

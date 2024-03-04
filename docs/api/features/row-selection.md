@@ -1,5 +1,5 @@
 ---
-title: Row Selection
+title: Row Selection APIs
 id: row-selection
 ---
 
@@ -14,6 +14,8 @@ export type RowSelectionTableState = {
   rowSelection: RowSelectionState
 }
 ```
+
+By default, the row selection state uses the index of each row as the row identifiers. Row selection state can instead be tracked with a custom unique row id by passing in a custom [getRowId](../../api/core/table.md#getrowid) function to the the table.
 
 ## Table Options
 
@@ -176,6 +178,14 @@ getIsSomeSelected: () => boolean
 ```
 
 Returns whether or not some of the row's sub rows are selected.
+
+### `getIsAllSubRowsSelected`
+
+```tsx
+getIsAllSubRowsSelected: () => boolean
+```
+
+Returns whether or not all of the row's sub rows are selected.
 
 ### `getCanSelect`
 

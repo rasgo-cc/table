@@ -1,9 +1,10 @@
-import { makeStateUpdater, memo } from '../utils'
+import { getMemoOptions, makeStateUpdater, memo } from '../utils'
 
 import { Table, OnChangeFn, Updater, Column, RowData } from '../types'
 
 import { orderColumns } from './Grouping'
 import { TableFeature } from '../core/table'
+import { ColumnPinningPosition, _getVisibleLeafColumns } from '..'
 
 export interface ColumnOrderTableState {
   columnOrder: ColumnOrderState
@@ -12,7 +13,33 @@ export interface ColumnOrderTableState {
 export type ColumnOrderState = string[]
 
 export interface ColumnOrderOptions {
+  /**
+   * If provided, this function will be called with an `updaterFn` when `state.columnOrder` changes. This overrides the default internal state management, so you will need to persist the state change either fully or partially outside of the table.
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#oncolumnorderchange)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
   onColumnOrderChange?: OnChangeFn<ColumnOrderState>
+}
+
+export interface ColumnOrderColumn {
+  /**
+   * Returns the index of the column in the order of the visible columns. Optionally pass a `position` parameter to get the index of the column in a sub-section of the table
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#getindex)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
+  getIndex: (position?: ColumnPinningPosition | 'center') => number
+  /**
+   * Returns `true` if the column is the first column in the order of the visible columns. Optionally pass a `position` parameter to check if the column is the first in a sub-section of the table.
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#getisfirstcolumn)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
+  getIsFirstColumn: (position?: ColumnPinningPosition | 'center') => boolean
+  /**
+   * Returns `true` if the column is the last column in the order of the visible columns. Optionally pass a `position` parameter to check if the column is the last in a sub-section of the table.
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#getislastcolumn)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
+  getIsLastColumn: (position?: ColumnPinningPosition | 'center') => boolean
 }
 
 export interface ColumnOrderDefaultOptions {
@@ -20,11 +47,21 @@ export interface ColumnOrderDefaultOptions {
 }
 
 export interface ColumnOrderInstance<TData extends RowData> {
-  setColumnOrder: (updater: Updater<ColumnOrderState>) => void
-  resetColumnOrder: (defaultState?: boolean) => void
   _getOrderColumnsFn: () => (
     columns: Column<TData, unknown>[]
   ) => Column<TData, unknown>[]
+  /**
+   * Resets the **columnOrder** state to `initialState.columnOrder`, or `true` can be passed to force a default blank state reset to `[]`.
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#resetcolumnorder)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
+  resetColumnOrder: (defaultState?: boolean) => void
+  /**
+   * Sets or updates the `state.columnOrder` state.
+   * @link [API Docs](https://tanstack.com/table/v8/docs/api/features/column-ordering#setcolumnorder)
+   * @link [Guide](https://tanstack.com/table/v8/docs/guide/column-ordering)
+   */
+  setColumnOrder: (updater: Updater<ColumnOrderState>) => void
 }
 
 //
@@ -45,23 +82,41 @@ export const Ordering: TableFeature = {
     }
   },
 
-  createTable: <TData extends RowData>(
+  createColumn: <TData extends RowData>(
+    column: Column<TData, unknown>,
     table: Table<TData>
-  ): ColumnOrderInstance<TData> => {
-    return {
-      setColumnOrder: updater => table.options.onColumnOrderChange?.(updater),
-      resetColumnOrder: defaultState => {
-        table.setColumnOrder(
-          defaultState ? [] : table.initialState.columnOrder ?? []
-        )
-      },
-      _getOrderColumnsFn: memo(
-        () => [
-          table.getState().columnOrder,
-          table.getState().grouping,
-          table.options.groupedColumnMode,
-        ],
-        (columnOrder, grouping, groupedColumnMode) => columns => {
+  ): void => {
+    column.getIndex = memo(
+      position => [_getVisibleLeafColumns(table, position)],
+      columns => columns.findIndex(d => d.id === column.id),
+      getMemoOptions(table.options, 'debugColumns', 'getIndex')
+    )
+    column.getIsFirstColumn = position => {
+      const columns = _getVisibleLeafColumns(table, position)
+      return columns[0]?.id === column.id
+    }
+    column.getIsLastColumn = position => {
+      const columns = _getVisibleLeafColumns(table, position)
+      return columns[columns.length - 1]?.id === column.id
+    }
+  },
+
+  createTable: <TData extends RowData>(table: Table<TData>): void => {
+    table.setColumnOrder = updater =>
+      table.options.onColumnOrderChange?.(updater)
+    table.resetColumnOrder = defaultState => {
+      table.setColumnOrder(
+        defaultState ? [] : table.initialState.columnOrder ?? []
+      )
+    }
+    table._getOrderColumnsFn = memo(
+      () => [
+        table.getState().columnOrder,
+        table.getState().grouping,
+        table.options.groupedColumnMode,
+      ],
+      (columnOrder, grouping, groupedColumnMode) =>
+        (columns: Column<TData, unknown>[]) => {
           // Sort grouped columns to the start of the column list
           // before the headers are built
           let orderedColumns: Column<TData, unknown>[] = []
@@ -94,11 +149,7 @@ export const Ordering: TableFeature = {
 
           return orderColumns(orderedColumns, grouping, groupedColumnMode)
         },
-        {
-          key: process.env.NODE_ENV === 'development' && 'getOrderColumnsFn',
-          // debug: () => table.options.debugAll ?? table.options.debugTable,
-        }
-      ),
-    }
+      getMemoOptions(table.options, 'debugTable', '_getOrderColumnsFn')
+    )
   },
 }

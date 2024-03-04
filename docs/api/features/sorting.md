@@ -1,5 +1,5 @@
 ---
-title: Sorting
+title: Sorting APIs
 id: sorting
 ---
 
@@ -37,7 +37,7 @@ The following sorting functions are built-in to the table core:
 - `datetime`
   - Sorts by time, use this if your values are `Date` objects.
 - `basic`
-  - Sorts using a basic/standard `a > b ? -1 : b < a ? 1 : 0` comparison. This is the fastest sorting function, but may not be the most accurate.
+  - Sorts using a basic/standard `a > b ? 1 : a < b ? -1 : 0` comparison. This is the fastest sorting function, but may not be the most accurate.
 
 Every sorting function receives 2 rows and a column ID and are expected to compare the two rows using the column ID to return `-1`, `0`, or `1` in ascending order. Here's a cheat sheet:
 
@@ -123,15 +123,15 @@ Inverts the order of the sorting for this column. This is useful for values that
 ### `sortUndefined`
 
 ```tsx
-sortUndefined?: false | -1 | 1 // defaults to false
+sortUndefined?: false | -1 | 1 // defaults to 1
 ```
 
 - `false`
-  - Undefined values will be considered tied and need to be sorted by the next colum filter or original index (which ever applies)
+  - Undefined values will be considered tied and need to be sorted by the next column filter or original index (whichever applies)
 - `-1`
-  - Undefined values will be sorted with higher priority (ascending)
+  - Undefined values will be sorted with higher priority (ascending) (if ascending, undefined will appear on the beginning of the list)
 - `1`
-  - Undefined values will be sorted with lower priority (descending)
+  - Undefined values will be sorted with lower priority (descending) (if ascending, undefined will appear on the end of the list)
 
 ## Column API
 
@@ -198,6 +198,14 @@ getIsSorted: () => false | SortDirection
 ```
 
 Returns whether this column is sorted.
+
+### `getFirstSortDir`
+
+```tsx 
+getFirstSortDir: () => SortDirection
+```
+
+Returns the first direction that should be used when sorting this column.
 
 ### `clearSorting`
 
@@ -285,8 +293,8 @@ enableSortingRemoval?: boolean
 ```
 
 Enables/Disables the ability to remove sorting for the table.
-If `true` then changing sort order will circle like: 'none' -> 'desc' -> 'asc' -> 'none' -> ...
-If `false` then changing sort order will circle like: 'none' -> 'desc' -> 'asc' -> 'desc' -> 'asc' -> ...
+- If `true` then changing sort order will circle like: 'none' -> 'desc' -> 'asc' -> 'none' -> ...
+- If `false` then changing sort order will circle like: 'none' -> 'desc' -> 'asc' -> 'desc' -> 'asc' -> ...
 
 ### `enableMultiRemove`
 

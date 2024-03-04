@@ -1,6 +1,6 @@
 import { Table, Row, RowModel, RowData } from '../types'
 import { SortingFn } from '../features/Sorting'
-import { memo } from '../utils'
+import { getMemoOptions, memo } from '../utils'
 
 export function getSortedRowModel<TData extends RowData>(): (
   table: Table<TData>
@@ -18,8 +18,8 @@ export function getSortedRowModel<TData extends RowData>(): (
         const sortedFlatRows: Row<TData>[] = []
 
         // Filter out sortings that correspond to non existing columns
-        const availableSorting = sortingState.filter(sort =>
-          table.getColumn(sort.id)?.getCanSort()
+        const availableSorting = sortingState.filter(
+          sort => table.getColumn(sort.id)?.getCanSort()
         )
 
         const columnInfoById: Record<
@@ -45,7 +45,7 @@ export function getSortedRowModel<TData extends RowData>(): (
         const sortData = (rows: Row<TData>[]) => {
           // This will also perform a stable sorting using the row index
           // if needed.
-          const sortedData = [...rows]
+          const sortedData = rows.map(row => ({ ...row }))
 
           sortedData.sort((rowA, rowB) => {
             for (let i = 0; i < availableSorting.length; i += 1) {
@@ -53,25 +53,31 @@ export function getSortedRowModel<TData extends RowData>(): (
               const columnInfo = columnInfoById[sortEntry.id]!
               const isDesc = sortEntry?.desc ?? false
 
+              let sortInt = 0
+
+              // All sorting ints should always return in ascending order
               if (columnInfo.sortUndefined) {
                 const aValue = rowA.getValue(sortEntry.id)
                 const bValue = rowB.getValue(sortEntry.id)
 
-                const aUndefined = typeof aValue === 'undefined'
-                const bUndefined = typeof bValue === 'undefined'
+                const aUndefined = aValue === undefined
+                const bUndefined = bValue === undefined
 
                 if (aUndefined || bUndefined) {
-                  return aUndefined && bUndefined
-                    ? 0
-                    : aUndefined
-                    ? columnInfo.sortUndefined
-                    : -columnInfo.sortUndefined
+                  sortInt =
+                    aUndefined && bUndefined
+                      ? 0
+                      : aUndefined
+                        ? columnInfo.sortUndefined
+                        : -columnInfo.sortUndefined
                 }
               }
 
-              // This function should always return in ascending order
-              let sortInt = columnInfo.sortingFn(rowA, rowB, sortEntry.id)
+              if (sortInt === 0) {
+                sortInt = columnInfo.sortingFn(rowA, rowB, sortEntry.id)
+              }
 
+              // If sorting is non-zero, take care of desc and inversion
               if (sortInt !== 0) {
                 if (isDesc) {
                   sortInt *= -1
@@ -105,12 +111,8 @@ export function getSortedRowModel<TData extends RowData>(): (
           rowsById: rowModel.rowsById,
         }
       },
-      {
-        key: process.env.NODE_ENV === 'development' && 'getSortedRowModel',
-        debug: () => table.options.debugAll ?? table.options.debugTable,
-        onChange: () => {
-          table._autoResetPageIndex()
-        },
-      }
+      getMemoOptions(table.options, 'debugTable', 'getSortedRowModel', () =>
+        table._autoResetPageIndex()
+      )
     )
 }
